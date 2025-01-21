@@ -6,7 +6,7 @@ const userRoutes = require('./user.routes');
 const houseRoutes = require('./house.routes');
 const topicRoutes = require('./topic.routes');
 
-router.use('/auth', authRoutes);
+router.use('/auth', authRoutes); // This maps to /api/auth
 router.use('/users', userRoutes);
 router.use('/houses', houseRoutes);
 router.use('/topics', topicRoutes);

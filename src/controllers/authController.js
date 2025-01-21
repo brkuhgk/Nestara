@@ -1,45 +1,123 @@
 // src/controllers/authController.js
 const supabase = require('../config/supabase');
+const { validationResult } = require('express-validator');
+
 
 const authController = {
   async register(req, res) {
     try {
-      const { email, phone, name, username } = req.body;
+      // Check for validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { email,password, phone, name, username,type } = req.body;
       
-      // Create auth user
+       // Validate email format
+       if (!email.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+
+      // Register with Supabase auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password: req.body.password
+        email: email.toLowerCase(),
+        password,
+        options: {
+          data: {
+            phone,
+            name,
+            username,
+            type: type || 'tenant'
+          }
+        }
       });
 
       if (authError) throw authError;
-
+      
       // Create user profile
       const { data: userData, error: userError } = await supabase
         .from('users')
         .insert([{
           id: authData.user.id,
-          email,
+          email:email.toLowerCase(),
           phone,
           name,
           username,
-          type: req.body.type || 'tenant'
+          type: type || 'tenant'
         }])
+        .select()
         .single();
 
       if (userError) throw userError;
 
-      res.status(201).json(userData);
+      res.status(201).json({
+        ...userData,
+        message: 'Please check your email for verification.'
+      });
+    } catch (error) {
+      // TODO: Handle error log it
+      res.status(400).json({ error: error.message });
+    }
+  },
+
+  async verifyEmail(req, res) {
+    try {
+      const { email, token } = req.body;
+
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: email.toLowerCase(),
+        token,
+        type: 'signup'  // Changed to signup type for email verification
+      });
+
+      if (error) throw error;
+
+      res.json({
+        message: 'Email verified successfully. You can now login.',
+        user: data.user
+      });
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
   },
 
+  async resendOTP(req, res) {
+    try {
+      const { email } = req.body;
+      
+      const { data, error } = await supabase.auth.resend({
+        email: email.toLowerCase(),
+        type: 'signup'  // For signup email verification
+      });
+  
+      if (error) throw error;
+  
+      res.json({
+        message: 'Verification email resent successfully. Please check your email.'
+      });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  },
+  
   async verifyOTP(req, res) {
     try {
       const { type, otp } = req.body;
       // OTP verification logic here
-      res.json({ message: 'OTP verified successfully' });
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email'
+      });
+
+      if (error) throw error;
+
+      res.json({
+        session: data.session,
+        user: data.user
+      });
+
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
@@ -50,7 +128,7 @@ const authController = {
       const { email, password } = req.body;
       
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email :email.toLowerCase(),
         password
       });
 
@@ -61,6 +139,8 @@ const authController = {
     }
   }
 };
+
+
 
 module.exports = authController;
 
