@@ -12,8 +12,11 @@ router.post('/', auth, houseController.createHouse);
 // GET /api/houses/:id - Get house details with members
 router.get('/:id', auth, houseController.getHouse);
 
+// GET /api/houses/:id/members - Get house members
+router.get('/:id/members', auth, houseController.getHouseMembers);
+
 // POST /api/houses/:id/members - Add member to house
-router.post('/:id/members', auth, houseController.addMember);
+router.post('/:id/members/add', auth, houseController.addMember);
 
 // POST /api/houses/join - Join house using address
 router.post('/join', auth, houseController.joinHouse);

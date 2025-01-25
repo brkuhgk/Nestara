@@ -1,7 +1,7 @@
 // src/controllers/authController.js
 const supabase = require('../config/supabase');
 const { validationResult } = require('express-validator');
-
+const { DEFAULT_RATING } = require('../config/constants');
 
 const authController = {
   async register(req, res) {
@@ -50,6 +50,23 @@ const authController = {
         .single();
 
       if (userError) throw userError;
+
+      // Set default ratings for the new user
+      const { error: ratingError } = await supabase
+        .from('user_ratings')
+        .insert([{
+          user_id: userData.id,
+          rp1: DEFAULT_RATING,
+          rp2: DEFAULT_RATING,
+          rp3: DEFAULT_RATING,
+          rp4: DEFAULT_RATING,
+          rp5: DEFAULT_RATING,
+          mp1: DEFAULT_RATING,
+          mp2: DEFAULT_RATING,
+          mp3: DEFAULT_RATING
+        }]);
+
+      if (ratingError) throw ratingError;
 
       res.status(201).json({
         ...userData,

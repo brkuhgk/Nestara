@@ -1,67 +1,116 @@
+// src/controllers/topicController.js
+const TopicService = require('../services/topicService');
+const { successResponse } = require('../utils/response');
+const { StatusCodes } = require('http-status-codes');
+const AppError = require('../utils/AppError');
+
 const topicController = {
-    async getTopics(req, res) {
-      try {
-        const { data, error } = await supabase
-          .from('topics')
-          .select('*')
-          .eq('house_id', req.query.houseId)
-          .order('created_at', { ascending: false });
-  
-        if (error) throw error;
-        res.json(data);
-      } catch (error) {
-        res.status(400).json({ error: error.message });
-      }
-    },
-  
-    async createTopic(req, res) {
-      try {
-        const { data, error } = await supabase
-          .from('topics')
-          .insert([{
-            ...req.body,
-            created_by: req.user.id
-          }])
-          .single();
-  
-        if (error) throw error;
-        res.status(201).json(data);
-      } catch (error) {
-        res.status(400).json({ error: error.message });
-      }
-    },
-  
-    async getTopic(req, res) {
-      try {
-        const { data, error } = await supabase
-          .from('topics')
-          .select('*, created_by:users(*)')
-          .eq('id', req.params.id)
-          .single();
-  
-        if (error) throw error;
-        res.json(data);
-      } catch (error) {
-        res.status(400).json({ error: error.message });
-      }
-    },
-  
-    async voteTopic(req, res) {
-      try {
-        const { data, error } = await supabase
-          .from('topic_votes')
-          .insert([{
-            topic_id: req.params.id,
-            user_id: req.user.id,
-            vote: req.body.vote
-          }]);
-  
-        if (error) throw error;
-        res.json(data);
-      } catch (error) {
-        res.status(400).json({ error: error.message });
-      }
+  /**
+   * Get all topics for a house with filters
+   * GET /api/topics
+   */
+  async getHouseTopics(req, res) {
+    try {
+      const topics = await TopicService.getHouseTopics(req.query);
+      return successResponse(res, topics);
+    } catch (error) {
+      res.status(400).json({ error: error.message });
     }
-  };
-  
-  module.exports = topicController;
+  },
+
+  /**
+   * Get a specific topic
+   * GET /api/topics/:id
+   */
+  async getTopic(req, res, next) {
+    try {
+      const topic = await TopicService.getTopicById(req.params.id);
+      if (!topic) {
+        throw new AppError('Topic not found', StatusCodes.NOT_FOUND);
+      }
+      return successResponse(res, topic);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * Create a new topic
+   * POST /api/topics
+   */
+  async createTopic(req, res) {
+    try {
+      const topicData = {
+        house_id: req.body.house_id,
+        description: req.body.description,
+        type: req.body.type,
+        created_for: req.body.created_for,
+        rating_parameter: req.body.rating_parameter,
+        images: req.body.images
+      };
+
+      const topic = await TopicService.createTopic(topicData, req.user.id);
+      return successResponse(res, topic, 'Topic created successfully', StatusCodes.CREATED);
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  },
+
+  /**
+   * Vote on a topic
+   * POST /api/topics/:id/vote
+   */
+  async voteTopic(req, res, next) {
+    try {
+      const { voteType } = req.body;
+      
+      if (!['upvote', 'downvote'].includes(voteType)) {
+        throw new AppError('Invalid vote type', StatusCodes.BAD_REQUEST);
+      }
+
+      const updatedTopic = await TopicService.voteTopic(
+        req.params.id,
+        req.user.id,
+        voteType
+      );
+
+      return successResponse(res, updatedTopic, 'Vote recorded successfully');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * Upload images for a topic
+   * POST /api/topics/:id/images
+   */
+  async uploadImages(req, res, next) {
+    try {
+      if (!req.files || req.files.length === 0) {
+        throw new AppError('No images uploaded', StatusCodes.BAD_REQUEST);
+      }
+
+      const imageUrls = req.files.map(file => file.location); // Assuming S3 upload
+      const topic = await TopicService.addImages(req.params.id, imageUrls);
+
+      return successResponse(res, topic, 'Images uploaded successfully');
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * Archive a topic
+   * PUT /api/topics/:id/archive
+   */
+  async archiveTopic(req, res, next) {
+    try {
+      const topic = await TopicService.archiveTopic(req.params.id);
+      return successResponse(res, topic, 'Topic archived successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+};
+
+module.exports = topicController;

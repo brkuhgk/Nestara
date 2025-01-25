@@ -1,3 +1,5 @@
+const supabase = require('../config/supabase'); // Ensure this import is present
+
 class HouseService {
     async createHouse(houseData, userId) {
       const { data: house, error: houseError } = await supabase

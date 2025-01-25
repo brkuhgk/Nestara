@@ -42,7 +42,6 @@ app.get('/', (req, res) => {
   res.json({ message: 'API is running' });
 });
 
-
 // 404 Handler
 app.use((req, res) => {
   res.status(StatusCodes.NOT_FOUND).json({

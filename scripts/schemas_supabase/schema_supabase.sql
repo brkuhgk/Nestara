@@ -1,3 +1,5 @@
+
+
 -- Enable necessary extensions
 create extension if not exists "uuid-ossp";
 
@@ -7,6 +9,7 @@ create table public.users (
     type text check (type in ('tenant', 'maintainer')),
     username text unique not null,
     email text unique not null,
+    password text not null, --Added Password Field
     phone text unique not null,
     name text not null,
     bio text,
@@ -51,3 +54,13 @@ create table public.topics (
 -- Create indexes
 create index idx_house_members_user on house_members(user_id);
 create index idx_topics_house on topics(house_id);
+
+
+
+-- If table already exists, add password column
+alter table public.users
+add column password text not null default 'temp_password';
+-- After adding the column, you can remove the default
+alter table public.users
+alter column password drop default;
+

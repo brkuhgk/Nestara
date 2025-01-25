@@ -1,0 +1,85 @@
+-- Function to process topic-based rating updates
+CREATE OR REPLACE FUNCTION process_topic_rating_updates() RETURNS void AS $$
+DECLARE
+    v_topic RECORD;
+    v_user_id UUID;
+    v_points INTEGER;
+BEGIN
+    -- Get topics older than 30 days
+    FOR v_topic IN 
+        SELECT *
+        FROM topics
+        WHERE created_at < (CURRENT_TIMESTAMP - INTERVAL '30 days')
+        AND status = 'active'
+    LOOP
+        CASE v_topic.type
+            -- Handle Conflict topics
+            WHEN 'conflict' THEN
+                v_points := -50; -- Deduct 50 points for conflicts
+                -- Update ratings for each user in created_for
+                FOREACH v_user_id IN ARRAY v_topic.created_for
+                LOOP
+                    -- Update user rating
+                    UPDATE user_ratings
+                    SET 
+                        rating_parameter = rating_parameter + v_points,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = v_user_id
+                    AND rating_parameter = v_topic.rating_parameter;
+                    
+                    -- Record rating history
+                    INSERT INTO rating_history (
+                        user_id,
+                        parameter,
+                        change_amount,
+                        reason,
+                        topic_id
+                    ) VALUES (
+                        v_user_id,
+                        v_topic.rating_parameter,
+                        v_points,
+                        'Conflict topic penalty',
+                        v_topic.id
+                    );
+                END LOOP;
+
+            -- Handle Mentions topics
+            WHEN 'mentions' THEN
+                v_points := 10; -- Add 10 points for mentions (changed from 50 to 10)
+                -- Update ratings for each user in created_for
+                FOREACH v_user_id IN ARRAY v_topic.created_for
+                LOOP
+                    -- Update user rating
+                    UPDATE user_ratings
+                    SET 
+                        rating_parameter = rating_parameter + v_points,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = v_user_id
+                    AND rating_parameter = v_topic.rating_parameter;
+                    
+                    -- Record rating history
+                    INSERT INTO rating_history (
+                        user_id,
+                        parameter,
+                        change_amount,
+                        reason,
+                        topic_id
+                    ) VALUES (
+                        v_user_id,
+                        v_topic.rating_parameter,
+                        v_points,
+                        'Mentions topic reward (+10 points)',  -- Updated reason to show point value
+                        v_topic.id
+                    );
+                END LOOP;
+        END CASE;
+
+        -- Archive the topic
+        UPDATE topics
+        SET 
+            status = 'archived',
+            archived_at = CURRENT_TIMESTAMP
+        WHERE id = v_topic.id;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
