@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { body, query, param } = require('express-validator');
+const { body, param } = require('express-validator');
 const multer = require('multer');
 const auth = require('../middleware/auth/authenticate');
 const topicController = require('../controllers/topicController');
@@ -53,29 +53,17 @@ const voteValidation = [
 ];
 
 const getTopicsValidation = [
-    query('houseId').isUUID().withMessage('Valid house ID is required'),
-    query('type')
-        .optional()
-        .isIn(Object.values(TOPIC_TYPES))
-        .withMessage('Invalid topic type'),
-    query('status')
-        .optional()
-        .isIn(['active', 'archived'])
-        .withMessage('Invalid status'),
-    query('created_for')
-        .optional()
-        .isUUID()
-        .withMessage('Invalid user ID')
+    param('houseId').isUUID().withMessage('Valid house ID is required')
 ];
 
 // Routes
 
 /**
- * @route GET /api/topics
- * @desc Get all topics for a house with filters
+ * @route GET /api/topics/:houseId
+ * @desc Get all topics for a house
  * @access Private
  */
-router.get('/', 
+router.get('/:houseId', 
     auth, 
     getTopicsValidation,
     validate,
@@ -153,14 +141,14 @@ router.get('/house/:houseId/conflicts',
     auth,
     param('houseId').isUUID().withMessage('Invalid house ID'),
     validate,
-    async (req, res, next) => {
+    async (req, res) => {
         req.query = {
             ...req.query,
             houseId: req.params.houseId,
             type: TOPIC_TYPES.CONFLICT,
             status: 'active'
         };
-        return topicController.getHouseTopics(req, res, next);
+        return topicController.getHouseTopics(req, res);
     }
 );
 

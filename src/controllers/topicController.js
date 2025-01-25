@@ -11,8 +11,10 @@ const topicController = {
    */
   async getHouseTopics(req, res) {
     try {
-      const topics = await TopicService.getHouseTopics(req.query);
-      return successResponse(res, topics);
+      
+      const topics = await TopicService.getHouseTopics(req.params.houseId);
+      // return successResponse(res, topics);
+      res.status(200).json(topics);
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
@@ -22,7 +24,7 @@ const topicController = {
    * Get a specific topic
    * GET /api/topics/:id
    */
-  async getTopic(req, res, next) {
+  async getTopic(req, res) {
     try {
       const topic = await TopicService.getTopicById(req.params.id);
       if (!topic) {
@@ -30,7 +32,7 @@ const topicController = {
       }
       return successResponse(res, topic);
     } catch (error) {
-      next(error);
+      res.status(400).json({ error: error.message });
     }
   },
 
@@ -60,15 +62,17 @@ const topicController = {
    * Vote on a topic
    * POST /api/topics/:id/vote
    */
-  async voteTopic(req, res, next) {
+  async voteTopic(req, res) {
     try {
       const { voteType } = req.body;
-      
+      console.log('voteType:', voteType);
       if (!['upvote', 'downvote'].includes(voteType)) {
         throw new AppError('Invalid vote type', StatusCodes.BAD_REQUEST);
       }
+      console.log('req.params.id:', req.params.id);
+      console.log('req.user.id:', req.user.id);
 
-      const updatedTopic = await TopicService.voteTopic(
+      const updatedTopic = await TopicService.voteTopicByDbFunction(
         req.params.id,
         req.user.id,
         voteType
@@ -76,7 +80,7 @@ const topicController = {
 
       return successResponse(res, updatedTopic, 'Vote recorded successfully');
     } catch (error) {
-      next(error);
+      res.status(400).json({ error: error.message });
     }
   },
 
