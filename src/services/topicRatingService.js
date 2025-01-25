@@ -9,7 +9,7 @@ class TopicRatingService {
         // Rating points configuration
         this.RATING_POINTS = {
             CONFLICT_PENALTY: -50,
-            MENTION_REWARD: 50
+            MENTION_REWARD: 10
         };
     }
 
@@ -23,13 +23,16 @@ class TopicRatingService {
             // Calculate the cutoff date (30 days ago)
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - 30);
+            const cutoffDateISOString = cutoffDate.toISOString(); // Convert to ISO string
 
             // Get all active topics older than 30 days
             const { data: oldTopics, error } = await supabase
                 .from('topics')
                 .select('*')
-                .lt('created_at', cutoffDate)
+                // .lt('created_at', cutoffDateISOString)
                 .eq('status', 'active');
+
+            console.log("oldTopics ", oldTopics);
 
             if (error) throw error;
 
@@ -76,6 +79,7 @@ class TopicRatingService {
      * @param {Object} topic - Conflict topic
      */
     async handleConflictTopic(topic) {
+        console.log('currently processing conflict',topic)
         if (!topic.created_for?.length) return;
 
         const updates = topic.created_for.map(userId => ({
@@ -87,19 +91,20 @@ class TopicRatingService {
 
         await this.processRatingUpdates(updates);
         
-        // Send notifications to affected users
-        for (const userId of topic.created_for) {
-            await NotificationService.createNotification(userId, {
-                type: 'rating_penalty',
-                message: `Your rating was reduced due to an unresolved conflict`,
-                metadata: {
-                    topic_id: topic.id,
-                    points: this.RATING_POINTS.CONFLICT_PENALTY,
-                    parameter: topic.rating_parameter
-                }
-            });
-        }
+        // // Send notifications to affected users
+        // for (const userId of topic.created_for) {
+        //     await NotificationService.createNotification(userId, {
+        //         type: 'rating_penalty',
+        //         message: `Your rating was reduced due to an unresolved conflict`,
+        //         metadata: {
+        //             topic_id: topic.id,
+        //             points: this.RATING_POINTS.CONFLICT_PENALTY,
+        //             parameter: topic.rating_parameter
+        //         }
+        //     });
+        // }
     }
+    
 
     /**
      * Handle mentions topic rating updates
@@ -117,18 +122,18 @@ class TopicRatingService {
 
         await this.processRatingUpdates(updates);
 
-        // Send notifications to affected users
-        for (const userId of topic.created_for) {
-            await NotificationService.createNotification(userId, {
-                type: 'rating_reward',
-                message: `Your rating was increased due to positive mentions`,
-                metadata: {
-                    topic_id: topic.id,
-                    points: this.RATING_POINTS.MENTION_REWARD,
-                    parameter: topic.rating_parameter
-                }
-            });
-        }
+        // TODO: Send notifications to affected users
+        // for (const userId of topic.created_for) {
+        //     await NotificationService.createNotification(userId, {
+        //         type: 'rating_reward',
+        //         message: `Your rating was increased due to positive mentions`,
+        //         metadata: {
+        //             topic_id: topic.id,
+        //             points: this.RATING_POINTS.MENTION_REWARD,
+        //             parameter: topic.rating_parameter
+        //         }
+        //     });
+        // }
     }
 
     /**
