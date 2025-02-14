@@ -10,7 +10,7 @@ router.post('/register', [
  body('phone').matches(/^\+?[\d\s-]{10,}$/).withMessage('Please provide a valid phone number'),
  body('name').trim().notEmpty().withMessage('Name is required'),
  body('username').trim().isLength({ min: 3 }).withMessage('Username must be at least 3 characters long'),
- body('type').isIn(['tenant', 'maintainer']).withMessage('Invalid user type')
+ body('type').isIn(['tenant', 'maintainer','norole']).withMessage('Invalid user type')
 ], authController.register);
 
 // POST /api/auth/verify-otp - Verify email/phone OTP

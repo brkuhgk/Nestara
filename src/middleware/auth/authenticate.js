@@ -1,32 +1,35 @@
+// middleware/auth/authenticate.js
+
 const { StatusCodes } = require('http-status-codes');
-const AppError = require('../../utils/AppError');
 const supabase = require('../../config/supabase');
+const AppError = require('../../utils/AppError');
 
 const authenticate = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      throw new AppError(
-        'Authentication required', 
-        StatusCodes.UNAUTHORIZED
-      );
-    }
+    try {
+        // Get token from header
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            throw new AppError('No token provided', StatusCodes.UNAUTHORIZED);
+        }
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    
-    if (error) {
-      throw new AppError(
-        'Invalid or expired token', 
-        StatusCodes.UNAUTHORIZED
-      );
-    }
+        const token = authHeader.split(' ')[1];
 
-    req.user = user;
-    next();
-  } catch (error) {
-    next(error);
-  }
+        // Verify token
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+        
+        if (error || !user) {
+            console.error('[Auth] Token verification failed:', error);
+            throw new AppError('Invalid token', StatusCodes.UNAUTHORIZED);
+        }
+
+        // Add user to request
+        req.user = user;
+        next();
+    } catch (error) {
+        console.error('[Auth] Authentication error:', error);
+        res.status(error.statusCode || StatusCodes.UNAUTHORIZED)
+            .json({ error: error.message || 'Authentication failed' });
+    }
 };
 
 module.exports = authenticate;

@@ -12,7 +12,10 @@ const topicController = {
   async getHouseTopics(req, res) {
     try {
       
-      const topics = await TopicService.getHouseTopics(req.params.houseId);
+      const topics = await TopicService.getHouseTopics(
+        req.params.houseId,
+        req.user.id
+      );
       // return successResponse(res, topics);
       res.status(200).json(topics);
     } catch (error) {
@@ -58,30 +61,57 @@ const topicController = {
     }
   },
 
-  /**
-   * Vote on a topic
-   * POST /api/topics/:id/vote
-   */
-  async voteTopic(req, res) {
-    try {
-      const { voteType } = req.body;
-      console.log('voteType:', voteType);
-      if (!['upvote', 'downvote'].includes(voteType)) {
-        throw new AppError('Invalid vote type', StatusCodes.BAD_REQUEST);
+      /**
+     * Vote on a topic
+     * POST /api/topics/:id/vote
+     */
+      async voteTopic(req, res) {
+        try {
+            const { id: topicId } = req.params;
+            const { voteType } = req.body;
+            const userId = req.user.id;
+
+            console.log('[TopicController] Processing vote:', {
+                topicId,
+                userId,
+                voteType
+            });
+
+            const updatedTopic = await TopicService.voteTopicByDbFunction(
+                topicId,
+                userId,
+                voteType
+            );
+
+            return successResponse(res, updatedTopic, 'Vote recorded successfully');
+        } catch (error) {
+            console.error('[TopicController] Vote error:', error);
+            res.status(error.statusCode || StatusCodes.BAD_REQUEST)
+                .json({ error: error.message });
+        }
+    },
+  
+    /**
+     * Get vote status for a topic
+     * GET /api/topics/:id/vote-status
+     */
+    async getVoteStatus(req, res) {
+      try {
+          const { id: topicId } = req.params;
+          const userId = req.user.id;
+
+          console.log('[TopicController] Getting vote status:', {
+              topicId,
+              userId
+          });
+
+          const voteStatus = await TopicService.getVoteStatus(topicId, userId);
+          return successResponse(res, voteStatus);
+      } catch (error) {
+          console.error('[TopicController] Vote status error:', error);
+          res.status(error.statusCode || StatusCodes.BAD_REQUEST)
+              .json({ error: error.message });
       }
-      console.log('req.params.id:', req.params.id);
-      console.log('req.user.id:', req.user.id);
-
-      const updatedTopic = await TopicService.voteTopicByDbFunction(
-        req.params.id,
-        req.user.id,
-        voteType
-      );
-
-      return successResponse(res, updatedTopic, 'Vote recorded successfully');
-    } catch (error) {
-      res.status(400).json({ error: error.message });
-    }
   },
 
   /**

@@ -40,9 +40,10 @@ app.get('/health', (req, res) => {
 app.use('/api', routes); //TODO: change to /api/v1/  
 
 // Basic route for testing
-app.get('/', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ message: 'API is running' });
 });
+
 
 // 404 Handler
 app.use((req, res) => {

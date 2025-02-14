@@ -13,6 +13,187 @@ class TopicService {
    * @param {UUID} createdBy - User ID who created the topic
    * @returns {Promise<Object>} Created topic
    */
+
+
+
+    /**
+   * Get vote status for a topic
+   * @param {string} topicId - Topic ID
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} Vote status
+   */
+    async getVoteStatus(topicId, userId) {
+      try {
+        // First verify if topic exists
+        const { data: topic, error: topicError } = await supabase
+          .from('topics')
+          .select('id, house_id')
+          .eq('id', topicId)
+          .single();
+  
+        if (topicError || !topic) {
+          throw new AppError('Topic not found', StatusCodes.NOT_FOUND);
+        }
+  
+        // Get all votes for this topic
+        const { data: allVotes, error: votesError } = await supabase
+          .from('topic_votes')
+          .select('vote_type, user_id, created_at')
+          .eq('topic_id', topicId);
+  
+        if (votesError) {
+          throw new AppError('Failed to fetch votes', StatusCodes.BAD_REQUEST);
+        }
+  
+        // Get user's last vote
+        const userVotes = allVotes?.filter(vote => vote.user_id === userId) || [];
+        const lastVote = userVotes.length > 0 ? 
+          userVotes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] : 
+          null;
+  
+        // Calculate vote counts
+        const upvotes = allVotes?.filter(vote => vote.vote_type === 'upvote').length || 0;
+        const downvotes = allVotes?.filter(vote => vote.vote_type === 'downvote').length || 0;
+  
+        return {
+          currentVote: lastVote?.vote_type || null,
+          canVote: true,
+          nextAllowedVote: lastVote ? 
+            (lastVote.vote_type === 'upvote' ? 'downvote' : 'upvote') : 
+            'both',
+          voteCounts: {
+            upvotes,
+            downvotes,
+            total: upvotes - downvotes
+          }
+        };
+      } catch (error) {
+        console.error('[TopicService] Get vote status error:', error);
+        throw new AppError(
+          error.message || 'Failed to get vote status',
+          error.statusCode || StatusCodes.BAD_REQUEST
+        );
+      }
+    }
+  
+    /**
+     * Vote on a topic using a database function
+     * @param {UUID} topicId - Topic ID
+     * @param {UUID} userId - User ID
+     * @param {string} voteType - Vote type (upvote or downvote)
+     * @returns {Promise<Object>} Updated topic
+     */
+    async voteTopicByDbFunction(topicId, userId, voteType) {
+      try {
+        console.log('[TopicService] Processing vote:', { topicId, userId, voteType });
+    
+        // First verify if topic exists and get house_id
+        const { data: topic, error: topicError } = await supabase
+          .from('topics')
+          .select('*')
+          .eq('id', topicId)
+          .single();
+    
+        if (topicError || !topic) {
+          console.error('[TopicService] Topic not found:', topicError);
+          throw new AppError('Topic not found', StatusCodes.NOT_FOUND);
+        }
+    
+        // Get last vote by user for this topic
+        const { data: lastVotes, error: lastVoteError } = await supabase
+          .from('topic_votes')
+          .select('*')
+          .eq('topic_id', topicId)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+    
+        console.log('[TopicService] Last votes:', lastVotes);
+    
+        const lastVote = lastVotes && lastVotes.length > 0 ? lastVotes[0] : null;
+    
+        // Check for consecutive same votes
+        if (lastVote && lastVote.vote_type === voteType) {
+          throw new AppError('Cannot vote the same way consecutively', StatusCodes.BAD_REQUEST);
+        }
+    
+        // Delete any previous votes by this user for this topic
+        if (lastVote) {
+          console.log('[TopicService] Deleting previous vote');
+          const { error: deleteError } = await supabase
+            .from('topic_votes')
+            .delete()
+            .eq('topic_id', topicId)
+            .eq('user_id', userId);
+    
+          if (deleteError) {
+            console.error('[TopicService] Delete error:', deleteError);
+            throw new AppError('Failed to update vote', StatusCodes.BAD_REQUEST);
+          }
+        }
+    
+        // Insert new vote
+        console.log('[TopicService] Inserting new vote');
+        const { data: newVote, error: insertError } = await supabase
+          .from('topic_votes')
+          .insert([{
+            topic_id: topicId,
+            user_id: userId,
+            vote_type: voteType
+          }])
+          .select()
+          .single();
+    
+        if (insertError) {
+          console.error('[TopicService] Insert error:', insertError);
+          throw new AppError('Failed to record vote', StatusCodes.BAD_REQUEST);
+        }
+    
+        // Get all votes for counting
+        const { data: allVotes, error: countError } = await supabase
+          .from('topic_votes')
+          .select('vote_type')
+          .eq('topic_id', topicId);
+    
+        if (countError) {
+          console.error('[TopicService] Count error:', countError);
+          throw new AppError('Failed to count votes', StatusCodes.BAD_REQUEST);
+        }
+    
+        const upvotes = allVotes.filter(v => v.vote_type === 'upvote').length;
+        const downvotes = allVotes.filter(v => v.vote_type === 'downvote').length;
+        const netVotes = upvotes - downvotes;
+    
+        console.log('[TopicService] Vote counts:', { upvotes, downvotes, netVotes });
+    
+        // Update topic with new vote counts
+        const { data: updatedTopic, error: updateError } = await supabase
+          .from('topics')
+          .update({
+            votes: [{
+              count: netVotes,
+              upvotes,
+              downvotes
+            }]
+          })
+          .eq('id', topicId)
+          .select('*, created_by(*)')
+          .single();
+    
+        if (updateError) {
+          console.error('[TopicService] Update error:', updateError);
+          throw new AppError('Failed to update topic', StatusCodes.BAD_REQUEST);
+        }
+    
+        return updatedTopic;
+      } catch (error) {
+        console.error('[TopicService] Vote error:', error);
+        throw new AppError(
+          error.message || 'Failed to process vote',
+          error.statusCode || StatusCodes.BAD_REQUEST
+        );
+      }
+    }
+
   async createTopic(topicData, createdBy) {
     const { house_id, description, type, created_for, rating_parameter, images } = topicData;
 
@@ -260,12 +441,13 @@ class TopicService {
     });
   }
 
+  
   /**
    * Get topics for a house
    * @param {UUID} houseId - House ID
    * @param {Object} filters - Filter options
    */
-  async getHouseTopics(houseId) {
+  async getHouseTopics(houseId, userId) {
     try {
       const { data, error } = await supabase
         .from('topics')
@@ -279,7 +461,20 @@ class TopicService {
       
       console.log("Topics are fetched", data);
       if (error) throw error;
-      return data;
+
+      // Transform data to include user's vote status
+    const transformedData = data.map(topic => {
+      const userVote = topic.votes.find(vote => vote.user_id === userId);
+      return {
+        ...topic,
+        userVoteType: userVote ? userVote.vote_type : null
+      };
+    });
+
+    return transformedData;
+
+    // return data;
+      // return data;
     } catch (error) {
       throw new AppError('Failed to fetch topics', StatusCodes.BAD_REQUEST);
     }
