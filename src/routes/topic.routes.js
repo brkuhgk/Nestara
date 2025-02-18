@@ -56,6 +56,20 @@ const getTopicsValidation = [
     param('houseId').isUUID().withMessage('Valid house ID is required')
 ];
 
+
+/**
+ * @route GET /api/topics/:id/vote-status
+ * @desc Get user's vote status for a topic
+ * @access Private
+ */
+router.get('/:id/vote-status',
+    auth,
+    param('id').isUUID().withMessage('Invalid topic ID'),
+    validate,
+    topicController.getVoteStatus
+);
+
+
 // Routes
 
 /**
@@ -102,7 +116,8 @@ router.get('/:id',
 router.post('/:id/vote',
     auth,
     param('id').isUUID().withMessage('Invalid topic ID'),
-    voteValidation,
+    body('voteType').isIn(['upvote', 'downvote'])
+        .withMessage('Vote type must be either upvote or downvote'),
     validate,
     topicController.voteTopic
 );

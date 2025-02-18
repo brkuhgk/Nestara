@@ -144,13 +144,28 @@ const authController = {
     try {
       const { email, password } = req.body;
       
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data:authData, error: authError } = await supabase.auth.signInWithPassword({
         email :email.toLowerCase(),
         password
       });
 
-      if (error) throw error;
-      res.json(data);
+      if (authError) throw authError;
+      // res.json(authData);
+      console.log(authData);
+      // adding house_id 
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select()
+        .eq('id', authData.user.id)
+        .single();
+      if (userError) throw userError;
+      console.log(userData);
+      res.json({
+        ...authData,
+        ...userData
+      });
+      console.log(res.json);
+
     } catch (error) {
       res.status(401).json({ error: error.message });
     }

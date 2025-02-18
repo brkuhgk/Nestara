@@ -47,7 +47,7 @@ exports.RATING_PARAMETERS = {
         mp2: {
             key: 'behavior',
             name: 'Behavior and cooperation',
-            description: 'How well the maintainer cooperates'
+            description: 'How well the maintainer coop erates'
         },
         mp3: {
             key: 'maintenance',

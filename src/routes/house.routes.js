@@ -9,7 +9,7 @@ router.get('/', auth, houseController.getHouses);
 // POST /api/houses - Create new house
 router.post('/', auth, houseController.createHouse);
 
-// GET /api/houses/:id - Get house details with members
+// GET /api/houses/:house_id - Get house details with members
 router.get('/:id', auth, houseController.getHouse);
 
 // GET /api/houses/:id/members - Get house members

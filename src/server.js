@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -12,6 +13,7 @@ const routes = require('./routes');
 
 const app = express();
 
+const cronJobs = require('./cornJobs')
 // Security Middleware
 app.use(helmet());
 app.use(cors({
@@ -38,9 +40,10 @@ app.get('/health', (req, res) => {
 app.use('/api', routes); //TODO: change to /api/v1/  
 
 // Basic route for testing
-app.get('/', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ message: 'API is running' });
 });
+
 
 // 404 Handler
 app.use((req, res) => {
@@ -57,6 +60,7 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+  cronJobs; //Ensure the cron jobs started.
 });
 
 // Handle unhandled promise rejections
