@@ -18,6 +18,7 @@ const timeBlockController = {
     }
   },
 
+
   getTimeBlocks: async (req, res) => {
     try {
       const { house_id, date } = req.query;
@@ -28,11 +29,21 @@ const timeBlockController = {
         });
       }
 
-      const timeBlocks = await TimeBlockService.getTimeBlocks(house_id, date);
-      res.json(timeBlocks);
+      // Parse the date to ensure it's in the correct format
+      const formattedDate = new Date(date).toISOString().split('T')[0];
+
+      const timeBlocks = await TimeBlockService.getTimeBlocks(house_id, formattedDate);
+      
+      return res.json({
+        status: 'success',
+        data: timeBlocks
+      });
+      
     } catch (error) {
-      res.status(StatusCodes.BAD_REQUEST).json({
-        error: error.message || 'Failed to fetch time blocks'
+      console.error('Error getting time blocks:', error);
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: 'error',
+        message: error.message || 'Failed to fetch time blocks'
       });
     }
   },
@@ -68,6 +79,35 @@ const timeBlockController = {
     } catch (error) {
       res.status(StatusCodes.BAD_REQUEST).json({
         error: error.message || 'Failed to fetch user time blocks'
+      });
+    }
+  },
+  searchTimeBlocks: async (req, res) => {
+    try {
+      const { house_id, date } = req.body;
+      
+      if (!house_id || !date) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          error: 'House ID and date are required',
+          message: 'House ID and date are required'
+        });
+      }
+
+      // Parse the date to ensure it's in the correct format
+      const formattedDate = new Date(date).toISOString().split('T')[0];
+
+      const timeBlocks = await TimeBlockService.getTimeBlocks(house_id, formattedDate);
+      console.log('timeBlocks=========', timeBlocks);
+      return res.json({
+        status: 'success',
+        data: timeBlocks
+      });
+      
+    } catch (error) {
+      console.error('Error searching time blocks:', error);
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: 'error',
+        message: error.message || 'Failed to search time blocks'
       });
     }
   }

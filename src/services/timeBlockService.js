@@ -12,6 +12,10 @@ class TimeBlockService {
         start_time,
         end_time 
       } = timeBlockData;
+      // Validate time block
+      if (start_time >= end_time) {
+        throw new AppError('End time must be after start time', StatusCodes.BAD_REQUEST);
+      }
 
       // Create time block
       const { data, error } = await supabase
@@ -30,8 +34,15 @@ class TimeBlockService {
         `)
         .single();
 
-      if (error) throw error;
+    if (error) {
+        if (error.message.includes('overlaps')) {
+          throw new AppError('Time block overlaps with existing block', StatusCodes.CONFLICT);
+        }
+        throw error;
+      }
+
       return data;
+
     } catch (error) {
       logger.error('Error creating time block:', error);
       throw error;
@@ -40,6 +51,8 @@ class TimeBlockService {
 
   async getTimeBlocks(houseId, date) {
     try {
+
+      console.log("======================== data ==================================", date);
       const { data, error } = await supabase
         .from('time_blocks')
         .select(`
@@ -49,7 +62,8 @@ class TimeBlockService {
         .eq('house_id', houseId)
         .eq('date', date)
         .order('start_time', { ascending: true });
-
+      
+      
       if (error) throw error;
       return data;
     } catch (error) {
@@ -60,12 +74,27 @@ class TimeBlockService {
 
   async deleteTimeBlock(id, userId) {
     try {
-      const { error } = await supabase
+      // Verify user owns the time block
+      const { data: block, error: fetchError } = await supabase
+        .from('time_blocks')
+        .select('user_id')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !block) {
+        throw new AppError('Time block not found', StatusCodes.NOT_FOUND);
+      }
+
+      if (block.user_id !== userId) {
+        throw new AppError('Not authorized to delete this time block', StatusCodes.FORBIDDEN);
+      }
+
+      const { error: deleteError } = await supabase
         .from('time_blocks')
         .delete()
-        .match({ id, user_id: userId });
+        .eq('id', id);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
     } catch (error) {
       logger.error('Error deleting time block:', error);
       throw error;

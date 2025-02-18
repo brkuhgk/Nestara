@@ -48,6 +48,19 @@ router.get('/', [
   timeBlockController.getTimeBlocks
 ]);
 
+
+// Search time blocks (using POST)
+router.post('/search', 
+  auth,
+  [
+    body('house_id').isUUID().withMessage('Valid house ID is required'),
+    body('date').isDate().withMessage('Valid date is required')
+  ],
+  validate,
+  timeBlockController.searchTimeBlocks  // New controller method
+);
+
+
 router.delete('/:id', [
   auth,
   param('id').isUUID().withMessage('Valid time block ID is required'),
