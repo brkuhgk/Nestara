@@ -1,4 +1,7 @@
 const supabase = require('../config/supabase'); // Ensure this import is present
+const s3Service = require('../services/s3Service');
+const logger = require('../config/logger');
+
 
 const houseController = {
   async getHouses(req, res) {
@@ -23,13 +26,18 @@ const houseController = {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const { name, address, image_url } = req.body;
+      const { name, address, image_key } = req.body;
 
       // Validate required fields
       if (!name || !address) {
         return res.status(400).json({ error: 'Name and address are required' });
       }
-
+      // Generate image URL if image was uploaded
+      let image_url;
+      if (image_key) {
+        image_url = await s3Service.getDownloadUrl(image_key);
+      }
+      
       // Insert into houses table
       const { data: houseData, error: houseError } = await supabase
         .from('houses')
